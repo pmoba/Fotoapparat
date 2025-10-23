@@ -3,7 +3,7 @@ name: Build & Release Fotoapparat
 on:
   push:
     tags:
-      - 'v*' # Solo ejecuta cuando se hace push de un tag tipo v2.7.1
+      - 'v*' # Solo ejecuta cuando se hace push de un tag tipo vX.Y.Z
 
 jobs:
   build:
@@ -15,7 +15,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Configurar JDK (Fotoapparat usa Java 8 o superior)
+      # 2️⃣ Configurar JDK 8
+      # NOTA IMPORTANTE: Mantener Java 8 mitiga el error de Groovy/Java7
+      # que experimentó con Gradle 5.4.1.
       - name: Set up JDK 8
         uses: actions/setup-java@v4
         with:
@@ -33,17 +35,21 @@ jobs:
       # 5️⃣ Extraer la versión desde el tag
       - name: Extract version
         id: version
+        # Extrae "v1.0.0" -> "1.0.0"
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       # 6️⃣ Crear la release en GitHub
+      # Usa softprops/action-gh-release@v2 para crear el borrador de la release.
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ env.VERSION }}
+          # Usamos ${{ env.VERSION }} que se configuró en el paso anterior.
+          tag_name: ${{ env.VERSION }} 
           name: "Fotoapparat ${{ env.VERSION }}"
           body: |
             🚀 **Fotoapparat ${{ env.VERSION }}**
+            
             Esta versión fue generada automáticamente por GitHub Actions.
             
             Incluye los `.aar` compilados de todos los módulos:
@@ -52,13 +58,19 @@ jobs:
             - lens
             - adapter
             - etc.
+          # Indica a la acción que NO adjunte archivos en este primer uso.
+          files: "" 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 7️⃣ Subir todos los archivos .aar generados por los módulos
+      # Reutilizamos softprops/action-gh-release@v2 para adjuntar los archivos.
       - name: Upload all AARs
         uses: softprops/action-gh-release@v2
         with:
+          # Debe usar el mismo tag para adjuntar archivos a la release recién creada.
+          tag_name: ${{ env.VERSION }}
+          # Especifica la ruta de todos los archivos AAR
           files: |
             core/build/outputs/aar/*.aar
             camera/build/outputs/aar/*.aar
