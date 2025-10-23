@@ -1,0 +1,69 @@
+name: Build & Release Fotoapparat
+
+on:
+  push:
+    tags:
+      - 'v*' # Solo ejecuta cuando se hace push de un tag tipo v2.7.1
+
+jobs:
+  build:
+    name: Build all modules and create release
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout del código fuente
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Configurar JDK (Fotoapparat usa Java 8 o superior)
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3️⃣ Dar permisos al gradlew
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4️⃣ Construir todas las librerías (core, camera, lens, etc.)
+      - name: Build all AARs
+        run: ./gradlew clean assembleRelease
+
+      # 5️⃣ Extraer la versión desde el tag
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      # 6️⃣ Crear la release en GitHub
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: "Fotoapparat ${{ env.VERSION }}"
+          body: |
+            🚀 **Fotoapparat ${{ env.VERSION }}**
+            Esta versión fue generada automáticamente por GitHub Actions.
+            
+            Incluye los `.aar` compilados de todos los módulos:
+            - core
+            - camera
+            - lens
+            - adapter
+            - etc.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 7️⃣ Subir todos los archivos .aar generados por los módulos
+      - name: Upload all AARs
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            core/build/outputs/aar/*.aar
+            camera/build/outputs/aar/*.aar
+            lens/build/outputs/aar/*.aar
+            adapter/build/outputs/aar/*.aar
+            sample/build/outputs/aar/*.aar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
